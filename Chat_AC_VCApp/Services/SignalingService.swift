@@ -146,7 +146,7 @@ final class SignalingService {
             let sender = try JSONDecoder().decode(Sender.self, from: data)
             return sender
         } catch {
-            print("❌ Decoding Error:", error)
+            print(" Decoding Error:", error)
             return nil
         }
     }

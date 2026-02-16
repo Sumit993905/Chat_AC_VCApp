@@ -22,7 +22,6 @@ struct RootView: View {
             }
             
         } else {
-            
             NavigationStack {
                 Login()
             }

@@ -115,6 +115,7 @@ struct ConnectPage: View {
                 }
                 
                 Spacer()
+                
             }
             .padding()
         }

@@ -12,5 +12,6 @@ struct UserModel: Identifiable {
     let name: String
     let email: String
     let password: String
+    
 }
 

@@ -103,7 +103,7 @@ struct MessageView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             
-            // ✅ Receive real-time messages
+            
             SignalingService.shared.onMessageReceived = { sender in
                 DispatchQueue.main.async {
                     messageStore.messages.append(sender)

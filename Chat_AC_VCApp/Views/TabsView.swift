@@ -55,7 +55,7 @@ struct TabsView: View {
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {
             
-            // Room ID
+            
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 if let id = roomId.roomID {

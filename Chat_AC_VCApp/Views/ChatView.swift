@@ -43,6 +43,7 @@ struct ChatView: View {
             }
             .padding()
             
+            
             Spacer()
             
             Button {

@@ -11,7 +11,7 @@ struct Sender: Codable, Identifiable {
     var id: UUID = UUID()
     let name: String
     let senderId: String
-    let content: String?   // chat ke time use hoga
+    let content: String?   
     let time: Date
     let roomId: String
     let isHost: Bool
