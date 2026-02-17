@@ -28,7 +28,6 @@ struct ConnectPage: View {
         
         ZStack {
             
-            // Background Gradient
             LinearGradient(
                 colors: [Color.blue.opacity(0.7),
                          Color.purple.opacity(0.6),
@@ -149,7 +148,7 @@ extension ConnectPage {
         
         isLoading = true
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             
             SignalingService.shared.connect()
             

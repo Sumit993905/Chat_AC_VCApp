@@ -17,7 +17,6 @@ struct MessageBubble: View {
         
         VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 4) {
             
-            // 🔥 Show name only for other users
             if !isCurrentUser {
                 Text(senderName)
                     .font(.caption)
@@ -112,9 +111,6 @@ struct MessageView: View {
         }
     }
 }
-
-
-// MARK: - Send Message
 
 extension MessageView {
     

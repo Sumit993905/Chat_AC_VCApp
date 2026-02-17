@@ -23,8 +23,6 @@ struct Login: View {
         
         ZStack {
             
-            // MARK: Background
-            
             LinearGradient(
                 colors: [
                     Color.blue.opacity(0.8),
@@ -131,7 +129,7 @@ struct CustomTextField: View {
         
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.black.opacity(0.8))
             
             TextField(placeholder, text: $text)
                 .foregroundColor(.white)
@@ -152,7 +150,7 @@ struct CustomSecureField: View {
         
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.black.opacity(0.8))
             
             SecureField(placeholder, text: $text)
                 .foregroundColor(.white)

@@ -1,5 +1,6 @@
 import Foundation
 import SocketIO
+import WebRTC
 
 final class SignalingService {
     
@@ -8,7 +9,7 @@ final class SignalingService {
     private let manager: SocketManager
     private let socket: SocketIOClient
     
-    // MARK: - Callbacks
+    // MARK: - Chat Callbacks
     
     var onConnect: (() -> Void)?
     var onDisconnect: (() -> Void)?
@@ -16,11 +17,29 @@ final class SignalingService {
     var onUserLeft: ((String) -> Void)?
     var onMessageReceived: ((Sender) -> Void)?
     
-    // MARK: - Init
+    // MARK: - Audio Call Callbacks
     
+    var onAudioCallStarted: (() -> Void)?
+    var onAudioCallEndedByHost: (() -> Void)?
+    var onParticipantJoinedAudio: ((String) -> Void)?
+    var onParticipantLeftAudio: ((String) -> Void)?
+    
+    // MARK: - Video Call Callbacks
+    
+    var onVideoCallStarted: (() -> Void)?
+    var onVideoCallEndedByHost: (() -> Void)?
+    var onParticipantJoinedVideo: ((String) -> Void)?
+    var onParticipantLeftVideo: ((String) -> Void)?
+    
+    // MARK: - WebRTC Signaling Callbacks
+
+    var onOfferReceived: ((String, RTCSessionDescription) -> Void)?
+    var onAnswerReceived: ((String, RTCSessionDescription) -> Void)?
+    var onCandidateReceived: ((String, RTCIceCandidate) -> Void)?
+
     private init() {
         
-        let url = URL(string: "https://maneuverable-cognatic-jaydon.ngrok-free.dev")! // change if needed
+        let url = URL(string: "https://maneuverable-cognatic-jaydon.ngrok-free.dev")!
         
         manager = SocketManager(
             socketURL: url,
@@ -31,8 +50,6 @@ final class SignalingService {
         
         setupListeners()
     }
-    
-    // MARK: - Connection
     
     func connect() {
         socket.connect()
@@ -46,7 +63,6 @@ final class SignalingService {
         socket.sid ?? UUID().uuidString
     }
     
-    // MARK: - Setup Listeners
     
     private func setupListeners() {
         
@@ -60,7 +76,7 @@ final class SignalingService {
             self?.onDisconnect?()
         }
         
-        // MARK: User Joined
+        // MARK: USER JOINED
         
         socket.on("user-joined") { [weak self] data, _ in
             guard
@@ -72,7 +88,6 @@ final class SignalingService {
         }
         
         socket.on("room-users") { [weak self] data, _ in
-            
             guard let arr = data.first as? [[String: Any]] else { return }
             
             for dict in arr {
@@ -80,12 +95,9 @@ final class SignalingService {
                     self?.onUserJoined?(sender)
                 }
             }
-            
-            print("ROOM USERS RECEIVED:", data)
         }
-
         
-        // MARK: User Left
+        // MARK: USER LEFT
         
         socket.on("user-left") { [weak self] data, _ in
             guard
@@ -96,7 +108,7 @@ final class SignalingService {
             self?.onUserLeft?(senderId)
         }
         
-        // MARK: Message Received
+        // MARK: CHAT MESSAGE
         
         socket.on("chat-message") { [weak self] data, _ in
             guard
@@ -106,9 +118,108 @@ final class SignalingService {
             
             self?.onMessageReceived?(sender)
         }
+        
+            //MARK: - For Audio
+        
+        socket.on("audio-call-started") { [weak self] _, _ in
+            self?.onAudioCallStarted?()
+        }
+        
+        socket.on("audio-call-ended-by-host") { [weak self] _, _ in
+            self?.onAudioCallEndedByHost?()
+        }
+        
+        socket.on("participant-joined-audio") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+            else { return }
+            
+            self?.onParticipantJoinedAudio?(senderId)
+        }
+        
+        socket.on("participant-left-audio") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+            else { return }
+            
+            self?.onParticipantLeftAudio?(senderId)
+        }
+        
+        //MARK: - For Video
+        
+        socket.on("video-call-started") { [weak self] _, _ in
+            self?.onVideoCallStarted?()
+        }
+        
+        socket.on("video-call-ended-by-host") { [weak self] _, _ in
+            self?.onVideoCallEndedByHost?()
+        }
+        
+        socket.on("participant-joined-video") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+            else { return }
+            
+            self?.onParticipantJoinedVideo?(senderId)
+        }
+        
+        socket.on("participant-left-video") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+            else { return }
+            
+            self?.onParticipantLeftVideo?(senderId)
+        }
+        
+        //MARK: - For WebRtc Signling
+        
+        socket.on("offer") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let from = dict["from"] as? String,
+                let sdpString = dict["sdp"] as? String
+            else { return }
+            
+            let sdp = RTCSessionDescription(type: .offer, sdp: sdpString)
+            self?.onOfferReceived?(from, sdp)
+        }
+
+        socket.on("answer") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let from = dict["from"] as? String,
+                let sdpString = dict["sdp"] as? String
+            else { return }
+            
+            let sdp = RTCSessionDescription(type: .answer, sdp: sdpString)
+            self?.onAnswerReceived?(from, sdp)
+        }
+
+        socket.on("candidate") { [weak self] data, _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let from = dict["from"] as? String,
+                let sdp = dict["candidate"] as? String,
+                let sdpMid = dict["sdpMid"] as? String,
+                let sdpMLineIndex = dict["sdpMLineIndex"] as? Int
+            else { return }
+            
+            let candidate = RTCIceCandidate(
+                sdp: sdp,
+                sdpMLineIndex: Int32(sdpMLineIndex),
+                sdpMid: sdpMid
+            )
+            
+            self?.onCandidateReceived?(from, candidate)
+        }
+
+
     }
     
-    // MARK: - Room
     
     func createRoom(_ sender: Sender) {
         emit(event: "create-room", sender: sender)
@@ -118,13 +229,76 @@ final class SignalingService {
         emit(event: "join-room", sender: sender)
     }
     
-    // MARK: - Send Message
-    
     func sendMessage(_ sender: Sender) {
         emit(event: "chat-message", sender: sender)
     }
     
-    // MARK: - Emit Helper
+    // MARK: - AUDIO
+    
+    func startAudioCall(roomId: String) {
+        socket.emit("start-audio-call", ["roomId": roomId])
+    }
+    
+    func joinAudioCall(roomId: String) {
+        socket.emit("join-audio-call", ["roomId": roomId])
+    }
+    
+    func leaveAudioCall(roomId: String) {
+        socket.emit("leave-audio-call", ["roomId": roomId])
+    }
+
+    
+    func endAudioCall(roomId: String) {
+        socket.emit("end-audio-call", ["roomId": roomId])
+    }
+    
+    // MARK: - VIDEO
+    
+    func startVideoCall(roomId: String) {
+        socket.emit("start-video-call", ["roomId": roomId])
+    }
+    
+    func joinVideoCall(roomId: String) {
+        socket.emit("join-video-call", ["roomId": roomId])
+    }
+    
+    func endVideoCall(roomId: String) {
+        socket.emit("end-video-call", ["roomId": roomId])
+    }
+    
+    // MARK: - WebRTC
+
+    func sendOffer(to peerId: String, sdp: RTCSessionDescription) {
+        
+        socket.emit("offer", [
+            "to": peerId,
+            "from": socketId,
+            "sdp": sdp.sdp
+        ])
+    }
+    
+    func sendAnswer(to peerId: String, sdp: RTCSessionDescription) {
+        
+        socket.emit("answer", [
+            "to": peerId,
+            "from": socketId,
+            "sdp": sdp.sdp
+        ])
+    }
+
+    func sendCandidate(to peerId: String, candidate: RTCIceCandidate) {
+        
+        socket.emit("candidate", [
+            "to": peerId,
+            "from": socketId,
+            "candidate": candidate.sdp,
+            "sdpMid": candidate.sdpMid ?? "",
+            "sdpMLineIndex": candidate.sdpMLineIndex
+        ])
+    }
+
+    
+    // MARK: -  Helper Method
     
     private func emit(event: String, sender: Sender) {
         
@@ -137,7 +311,6 @@ final class SignalingService {
         }
     }
     
-    // MARK: - Decode Helper
     
     private func decodeSender(_ dict: [String: Any]) -> Sender? {
         
@@ -146,7 +319,7 @@ final class SignalingService {
             let sender = try JSONDecoder().decode(Sender.self, from: data)
             return sender
         } catch {
-            print(" Decoding Error:", error)
+            print("❌ Decoding Error:", error)
             return nil
         }
     }

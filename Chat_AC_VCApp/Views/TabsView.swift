@@ -36,7 +36,7 @@ struct TabsView: View {
                     }
                     .tag(0)
                 
-                AudioView()
+                AudioView(callVM: CallViewModel(roomId: roomId.roomID ?? "Guest", isHost: ((userArray.users.first?.isHost) != nil)))
                     .tabItem {
                         Label("Audio", systemImage: "mic.fill")
                     }

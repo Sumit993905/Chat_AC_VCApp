@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		DFAAAD502F4336AD0020B1A6 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = DFAAAD4F2F4336AD0020B1A6 /* SocketIO */; };
+		DFAAAD5F2F4434AF0020B1A6 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = DFAAAD5E2F4434AF0020B1A6 /* WebRTC */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DFAAAD502F4336AD0020B1A6 /* SocketIO in Frameworks */,
+				DFAAAD5F2F4434AF0020B1A6 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +73,7 @@
 			name = Chat_AC_VCApp;
 			packageProductDependencies = (
 				DFAAAD4F2F4336AD0020B1A6 /* SocketIO */,
+				DFAAAD5E2F4434AF0020B1A6 /* WebRTC */,
 			);
 			productName = Chat_AC_VCApp;
 			productReference = DFAAAD2C2F4333740020B1A6 /* Chat_AC_VCApp.app */;
@@ -102,6 +105,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				DFAAAD4E2F4336AD0020B1A6 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
+				DFAAAD5D2F4434AF0020B1A6 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DFAAAD2D2F4333740020B1A6 /* Products */;
@@ -263,6 +267,8 @@
 				DEVELOPMENT_TEAM = SY3RBGLJMT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Access camera for video call ";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Access microphone for audio call ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -295,6 +301,8 @@
 				DEVELOPMENT_TEAM = SY3RBGLJMT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Access camera for video call ";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Access microphone for audio call ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -349,6 +357,14 @@
 				minimumVersion = 16.1.1;
 			};
 		};
+		DFAAAD5D2F4434AF0020B1A6 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 114.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -356,6 +372,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DFAAAD4E2F4336AD0020B1A6 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */;
 			productName = SocketIO;
+		};
+		DFAAAD5E2F4434AF0020B1A6 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DFAAAD5D2F4434AF0020B1A6 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

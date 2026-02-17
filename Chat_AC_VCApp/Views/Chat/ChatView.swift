@@ -84,8 +84,7 @@ extension ChatView {
                 }
             }
         }
-        
-        
+
         SignalingService.shared.onUserLeft = { senderId in
             DispatchQueue.main.async {
                 userArray.users.removeAll { $0.senderId == senderId }
