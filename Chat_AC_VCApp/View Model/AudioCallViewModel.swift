@@ -9,18 +9,15 @@ import WebRTC
 
 final class CallViewModel: ObservableObject {
     
-    // MARK: - Published UI States
     
-    @Published var isCallActive: Bool = false
-    @Published var isInCall: Bool = false
-    
-    
-    @Published var participants: [String] = []
-    
-    @Published var isMuted: Bool = false
+    //MARK: - For Audio
+    @Published var isAudioCallActive: Bool = false
+    @Published var isInAudioCall: Bool = false
+    @Published var audioParticipants: [String] = []
+    @Published var isAudioMuted: Bool = false
     @Published var isSpeakerOn: Bool = true
     
-    // MARK: - Dependencies
+        
     
     private let signaling = SignalingService.shared
     private let rtcManager = WebRTCManager.shared
@@ -28,7 +25,7 @@ final class CallViewModel: ObservableObject {
     var roomId: String
     @Published var isHost: Bool = false
     
-    // MARK: - Init
+    
     
     init(roomId: String, isHost: Bool) {
         self.roomId = roomId
@@ -43,43 +40,43 @@ private extension CallViewModel {
     
     func setupCallbacks() {
         
-        // Host started call
+        
         signaling.onAudioCallStarted = { [weak self] in
             DispatchQueue.main.async {
-                self?.isCallActive = true
+                self?.isAudioCallActive = true
             }
         }
         
-        // Host ended call
+        
         signaling.onAudioCallEndedByHost = { [weak self] in
             DispatchQueue.main.async {
                 self?.resetCallState()
             }
         }
         
-        // Someone joined
+        
         SignalingService.shared.onParticipantJoinedAudio = { [weak self] peerId in
              guard let self = self else { return }
              
              DispatchQueue.main.async {
                  
-                 if !(self.participants.contains(peerId)) {
-                     self.participants.append(peerId)
+                 if !(self.audioParticipants.contains(peerId)) {
+                     self.audioParticipants.append(peerId)
                  }
-                 // 🔥 CREATE PEER
+                 
                  WebRTCManager.shared.createPeerConnection(for: peerId)
                  
-                 // 🔥 IMPORTANT: EXISTING USER SEND OFFER
-                 if self.isInCall {
+                 
+                 if self.isInAudioCall {
                      WebRTCManager.shared.createOffer(for: peerId)
                  }
              }
          }
         
-        // Someone left
+        
         signaling.onParticipantLeftAudio = { [weak self] peerId in
             DispatchQueue.main.async {
-                self?.participants.removeAll { $0 == peerId }
+                self?.audioParticipants.removeAll { $0 == peerId }
                 self?.rtcManager.removePeer(peerId: peerId)
             }
         }
@@ -110,56 +107,55 @@ extension CallViewModel {
     func startCall() {
         guard isHost else { return }
         
-        isCallActive = true
-        isInCall = true
+        isAudioCallActive = true
+        isInAudioCall = true
         
-        participants = [SignalingService.shared.socketId]
+        audioParticipants = [SignalingService.shared.socketId]
         
         SignalingService.shared.startAudioCall(roomId: roomId)
-        if !participants.contains(SignalingService.shared.socketId) {
-            participants.append(SignalingService.shared.socketId)
+        if !audioParticipants.contains(SignalingService.shared.socketId) {
+            audioParticipants.append(SignalingService.shared.socketId)
         }
     }
     
     func endCall() {
         
         if isHost {
-            // Host ends full room
             signaling.endAudioCall(roomId: roomId)
             rtcManager.endCall()
             resetCallState()
         } else {
             signaling.leaveAudioCall(roomId: roomId)
             rtcManager.endCall(for: signaling.socketId)
-            isInCall = false
-            participants.removeAll {
+            isInAudioCall = false
+            audioParticipants.removeAll {
                 $0 == SignalingService.shared.socketId
             }
         }
     }
     
     func joinCall() {
-        guard isCallActive else { return }
+        guard isAudioCallActive else { return }
         
         SignalingService.shared.joinAudioCall(roomId: roomId)
         
-        isInCall = true
+        isInAudioCall = true
         
-        if !participants.contains(SignalingService.shared.socketId) {
-            participants.append(SignalingService.shared.socketId)
+        if !audioParticipants.contains(SignalingService.shared.socketId) {
+            audioParticipants.append(SignalingService.shared.socketId)
         }
     }
     
     func cleanupIfNeeded() {
-        if !isInCall {
+        if !isInAudioCall {
             WebRTCManager.shared.endCall()
         }
     }
     
     func resetCallState() {
-        isCallActive = false
-        isInCall = false
-        participants.removeAll()
+        isAudioCallActive = false
+        isInAudioCall = false
+        audioParticipants.removeAll()
     }
 }
 
@@ -167,8 +163,8 @@ extension CallViewModel {
     
     func toggleMute() {
         
-        isMuted.toggle()
-        WebRTCManager.shared.setMute(isMuted)
+        isAudioMuted.toggle()
+        WebRTCManager.shared.setMute(isAudioMuted)
     }
     
     func toggleSpeaker() {
