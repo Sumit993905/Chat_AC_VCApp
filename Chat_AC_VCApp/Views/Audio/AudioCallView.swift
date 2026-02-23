@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AudioCallView: View {
     
-    @ObservedObject var viewModel: CallViewModel
+    @ObservedObject var viewModel: AudioCallViewModel
     @EnvironmentObject var userArray: UserArray
     
     private let columns = [
@@ -12,29 +12,40 @@ struct AudioCallView: View {
     
     var body: some View {
         
-        VStack {
+        ZStack{
             
-            Text("Audio Call")
-                .font(.title.bold())
-                .padding(.top)
+            Color.black
+                .ignoresSafeArea()
             
-            Spacer()
-            
-            LazyVGrid(columns: columns, spacing: 20) {
+            VStack {
                 
-                ForEach(userArray.users) { user in
-                    CallUserCard(name: user.name)
+                Text("Enjoy Audio Call")
+                    .font(.title.bold())
+                    .padding(.top)
+                    .foregroundStyle(.white)
+                
+                Spacer()
+                
+                LazyVGrid(columns: columns, spacing: 20) {
+                    
+                    ForEach(userArray.users) { user in
+                        CallUserCard(name: user.name)
+                    }
                 }
+                .padding()
+                
+                Spacer()
+                
+                controls
             }
-            .padding()
+            .onDisappear {
+                viewModel.cleanupIfNeeded()
+            }
+            .navigationBarBackButtonHidden(true)
             
-            Spacer()
-            
-            controls
         }
-        .onDisappear {
-            viewModel.cleanupIfNeeded()
-        }
+        
+      
     }
 }
 
@@ -43,44 +54,53 @@ private extension AudioCallView {
     
     var controls: some View {
         
-        HStack(spacing: 40) {
+        HStack(spacing: 30) {
             
-            Button {
-                viewModel.toggleMute()
-            } label: {
-                Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .frame(width: 60, height: 60)
-                    .background(Color.gray)
-                    .clipShape(Circle())
+            circleButton(
+                icon: self.viewModel.isAudioMuted ? "mic.slash.fill" : "mic.fill",
+                color: .gray
+            ) {
+                self.viewModel.toggleMute()
             }
             
-            Button {
+            circleButton(
+                icon: "phone.down.fill",
+                color: .red
+            ) {
                 viewModel.endCall()
-            } label: {
-                Image(systemName: "phone.down.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .frame(width: 70, height: 70)
-                    .background(Color.red)
-                    .clipShape(Circle())
             }
             
-            Button {
-                viewModel.toggleSpeaker()
-            } label: {
-                Image(systemName: viewModel.isSpeakerOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .frame(width: 60, height: 60)
-                    .background(Color.gray)
-                    .clipShape(Circle())
+            circleButton(icon: viewModel.isSpeakerOn ? "speaker.wave.2.fill" : "speaker.slash.fill", color: .gray) {
+                self.viewModel.toggleSpeaker()
             }
+        
+           
         }
-        .padding(.bottom, 40)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 30)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .padding(.bottom, 30)
+    }
+    
+    
+    func circleButton(icon: String,
+                      color: Color,
+                      action: @escaping () -> Void) -> some View {
+        
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(.white)
+                .frame(width: 60, height: 60)
+                .background(color)
+                .clipShape(Circle())
+        }
     }
 }
+
+
+
 struct CallUserCard: View {
     
     let name: String
@@ -104,7 +124,7 @@ struct CallUserCard: View {
                         Circle()
                             .stroke(Color.green.opacity(0.4), lineWidth: 3)
                             .frame(width: 110, height: 110)
-                            .scaleEffect(animate ? 1.6 : 0.8)
+                            .scaleEffect(animate ? 1.6 : 1.0)
                             .opacity(animate ? 0 : 1)
                             .animation(
                                 .easeOut(duration: 2)
@@ -112,7 +132,7 @@ struct CallUserCard: View {
                                 .delay(Double(index) * 0.4),
                                 value: animate
                             )
-                            .offset(y:35)
+                            .offset(y:20)
                     }
                     
                     
@@ -150,7 +170,7 @@ struct CallUserCard: View {
 
 #Preview {
     
-    let vm = CallViewModel(roomId: "123", isHost: true)
+    let vm = AudioCallViewModel(roomId: "123", isHost: true)
     
     AudioCallView(viewModel: vm)
         .environmentObject(UserArray())

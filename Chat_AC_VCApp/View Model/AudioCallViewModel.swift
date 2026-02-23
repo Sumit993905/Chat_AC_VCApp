@@ -7,7 +7,7 @@ import Foundation
 import Combine
 import WebRTC
 
-final class CallViewModel: ObservableObject {
+final class AudioCallViewModel: ObservableObject {
     
     
     //MARK: - For Audio
@@ -36,7 +36,7 @@ final class CallViewModel: ObservableObject {
 }
 
 
-private extension CallViewModel {
+private extension AudioCallViewModel {
     
     func setupCallbacks() {
         
@@ -102,7 +102,7 @@ private extension CallViewModel {
 
 }
 
-extension CallViewModel {
+extension AudioCallViewModel {
     
     func startCall() {
         guard isHost else { return }
@@ -159,7 +159,7 @@ extension CallViewModel {
     }
 }
 
-extension CallViewModel {
+extension AudioCallViewModel {
     
     func toggleMute() {
         

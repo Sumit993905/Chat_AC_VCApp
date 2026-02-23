@@ -133,9 +133,7 @@ struct ConnectPage: View {
             Button("Cancel", role: .cancel) {}
         }
         .navigationDestination(isPresented: $navigateToNext) {
-            TabsView()
-                
-            
+            TabsView() 
         }
     }
 }

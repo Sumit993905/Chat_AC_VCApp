@@ -9,93 +9,157 @@ import Foundation
 import WebRTC
 import Combine
 
-final class WebRTCManager: ObservableObject {
+
+
+final class WebRTCManager:ObservableObject {
     
     static let shared = WebRTCManager()
-    
-    // multiple connection ke liye jarurui hai yeah
+
     private var peers: [String: WebRTCClient] = [:]
     
+    private var localClient: WebRTCClient?
+      var localVideoTrack: RTCVideoTrack?
+      var localAudioTrack: RTCAudioTrack?
+    @Published var remoteTracks: [String: RTCVideoTrack] = [:]
     
-    private var isAudioEnabled = true
-    private var isVideoEnabled = true
+    
     
     private init() {
         setupSignaling()
     }
     
+
     
     private func setupSignaling() {
-
-        SignalingService.shared.onOfferReceived = { [weak self] from, sdp in
+        
+        let signaling = SignalingService.shared
+        
+        signaling.onOfferReceived = { [weak self] from, sdp in
             self?.handleOffer(from: from, sdp: sdp)
         }
-
-        SignalingService.shared.onAnswerReceived = { [weak self] from, sdp in
+        
+        signaling.onAnswerReceived = { [weak self] from, sdp in
             self?.handleAnswer(from: from, sdp: sdp)
         }
-
-        SignalingService.shared.onCandidateReceived = { [weak self] from, candidate in
+        
+        signaling.onCandidateReceived = { [weak self] from, candidate in
             self?.handleCandidate(from: from, candidate: candidate)
         }
+        
+        signaling.onParticipantJoinedVideo = { [weak self] peerId in
+            guard let self = self else { return }
+            
+            let myId = SignalingService.shared.socketId
+            
+            print("🔥 onParticipantJoinedVideo fired")
+            print("My ID:", myId)
+            print("Incoming peerId:", peerId)
 
-        // When someone joins audio/video
-        SignalingService.shared.onParticipantJoinedAudio = { [weak self] peerId in
-            self?.createPeerConnection(for: peerId)
-            self?.createOffer(for: peerId)
+            if peerId == myId {
+                print("⚠️ Skipping because peerId == myId")
+                return
+            }
+
+            print("📤 Creating offer for:", peerId)
+
+            self.createPeerConnection(for: peerId)
+            self.createOffer(for: peerId)
+        }
+        
+        signaling.onExistingVideoParticipants = { [weak self] peers in
+            
+            guard let self = self else { return }
+            
+            let myId = SignalingService.shared.socketId
+            
+            for peerId in peers {
+                if peerId == myId { continue }
+                
+                self.createPeerConnection(for: peerId)
+                // ❌ DO NOT CREATE OFFER HERE
+            }
         }
 
-        SignalingService.shared.onParticipantJoinedVideo = { [weak self] peerId in
-            self?.createPeerConnection(for: peerId)
-            self?.createOffer(for: peerId)
-        }
 
-        // When someone leaves
-        SignalingService.shared.onParticipantLeftAudio = { [weak self] peerId in
-            self?.removePeer(peerId: peerId)
-        }
-
-        SignalingService.shared.onParticipantLeftVideo = { [weak self] peerId in
+        
+        signaling.onParticipantLeftVideo = { [weak self] peerId in
             self?.removePeer(peerId: peerId)
         }
     }
-
     
+    // MARK: - Local Media
+    
+    func startLocalMedia() {
+
+        if localVideoTrack != nil { return }
+
+        let tempClient = WebRTCClient(peerId: "local")
+
+        tempClient.startLocalAudio()
+        tempClient.startLocalVideo()
+
+        localVideoTrack = tempClient.getLocalVideoTrack()
+        localAudioTrack = tempClient.getLocalAudioTrack()
+
+        print("🎥 Local media started once")
+    }
+    
+    // MARK: - Peer Handling
     
     func createPeerConnection(for peerId: String) {
-        
+
         if peers[peerId] != nil { return }
-        
+
         let client = WebRTCClient(peerId: peerId)
         client.delegate = self
-        
-        client.startLocalAudio()
-        
-        if isVideoEnabled {
-            client.startLocalVideo()
+
+        // ✅ Attach already created local tracks
+        if let localVideoTrack = localVideoTrack {
+            client.attachLocalVideoTrack(localVideoTrack)
         }
-        
+
+        if let localAudioTrack = localAudioTrack {
+            client.attachLocalAudioTrack(localAudioTrack)
+        }
+
         peers[peerId] = client
-        
+
         print("✅ Peer created:", peerId)
     }
     
     func removePeer(peerId: String) {
         peers[peerId]?.endCall()
         peers.removeValue(forKey: peerId)
-        
+        remoteTracks.removeValue(forKey: peerId)
         print("❌ Peer removed:", peerId)
     }
-
+    
+    func endAllConnections() {
+        peers.values.forEach { $0.endCall() }
+        peers.removeAll()
+        remoteTracks.removeAll()
+        localClient?.endCall()
+        localClient = nil
+        localVideoTrack = nil
+    }
 }
+
+
 
 extension WebRTCManager {
     
     func createOffer(for peerId: String) {
-        
-        guard let client = peers[peerId] else { return }
-        
+
+        guard let client = peers[peerId] else {
+            print("❌ No client for peer:", peerId)
+            return
+        }
+
+        print("📤 Creating offer to:", peerId)
+
         client.createOffer { sdp in
+            
+            print("📤 Sending offer to:", peerId)
             
             SignalingService.shared.sendOffer(
                 to: peerId,
@@ -103,6 +167,7 @@ extension WebRTCManager {
             )
         }
     }
+
     
     func handleOffer(from peerId: String, sdp: RTCSessionDescription) {
         
@@ -119,6 +184,9 @@ extension WebRTCManager {
                 sdp: answer
             )
         }
+        
+        print("📩 OFFER RECEIVED FROM:", peerId)
+
     }
     
     func handleAnswer(from peerId: String, sdp: RTCSessionDescription) {
@@ -126,6 +194,9 @@ extension WebRTCManager {
         guard let client = peers[peerId] else { return }
         
         client.setRemoteDescription(sdp)
+        
+        print("📨 ANSWER RECEIVED FROM:", peerId)
+
     }
     
     func handleCandidate(from peerId: String, candidate: RTCIceCandidate) {
@@ -140,11 +211,10 @@ extension WebRTCManager {
             // Host ending full room
             peers.values.forEach { $0.endCall() }
             peers.removeAll()
+            remoteTracks.removeAll()
         }
     }
     
-    
-
     func setMute(_ isMuted: Bool) {
         
         peers.values.forEach { client in
@@ -159,6 +229,29 @@ extension WebRTCManager {
         }
     }
     
+    func storeRemoteTrack(_ track: RTCVideoTrack, for peerId: String) {
+        remoteTracks[peerId] = track
+    }
+
+    func remoteVideoTrack(for peerId: String) -> RTCVideoTrack? {
+        remoteTracks[peerId]
+    }
+    
+    func setVideoEnabled(_ enabled: Bool) {
+        peers.values.forEach { $0.setVideoEnabled(enabled) }
+    }
+    
+//    func prepareLocalMedia() {
+//
+//        if localVideoTrack != nil { return }
+//
+//        let dummyClient = WebRTCClient(peerId: "local")
+//        dummyClient.startLocalAudio()
+//        dummyClient.startLocalVideo()
+//
+//        localVideoTrack = dummyClient.getLocalVideoTrack()
+//    }
+
     
 }
 
@@ -179,16 +272,17 @@ extension WebRTCManager: WebRTCClientDelegate {
                       didReceiveRemoteVideoTrack track: RTCVideoTrack,
                       for peerId: String) {
         
-        print("--->Remote video track from:", peerId)
+        DispatchQueue.main.async {
+            self.remoteTracks[peerId] = track
+        }
+        print("📹 Remote track from:", peerId)
+        
     }
     
     func webRTCClient(_ client: WebRTCClient,
                       didChangeConnectionState state: RTCIceConnectionState,
                       for peerId: String) {
         
-        print("-->Connection state:", state.rawValue)
+        print("🔌 Connection:", state.rawValue)
     }
 }
-
-
-

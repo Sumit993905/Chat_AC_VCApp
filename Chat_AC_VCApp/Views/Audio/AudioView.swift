@@ -6,7 +6,7 @@ struct AudioView: View {
     @EnvironmentObject var roomId: RoomId
     @EnvironmentObject var userStore: UserStore
     
-    @ObservedObject var callVM: CallViewModel
+    @ObservedObject var callVM: AudioCallViewModel
     @State private var navigateToCall = false
     
     private let columns = [
@@ -50,7 +50,7 @@ struct AudioView: View {
                 actionButton
             }
         }
-        .navigationDestination(isPresented: $callVM.isInCall) {
+        .navigationDestination(isPresented: $callVM.isInAudioCall) {
             AudioCallView(viewModel: callVM)
                 .environmentObject(userArray)
         }
@@ -66,7 +66,7 @@ private extension AudioView {
     var actionButton: some View {
         
         VStack{
-            if callVM.isCallActive == false {
+            if callVM.isAudioCallActive == false {
                     
                     if isCurrentUserHost {
                         button(title: "Start Audio Call", color: .green) {
@@ -77,16 +77,16 @@ private extension AudioView {
                             .disabled(true)
                     }
                     
-                } else {
-                    
-                    if !callVM.isInCall {
-                        button(title: "Join Audio Call", color: .blue) {
-                            handleAction()
-                        }
+            } else {
+                
+                if !callVM.isInAudioCall {
+                    button(title: "Join Audio Call", color: .blue) {
+                        handleAction()
                     }
                 }
-
+            }
         }
+        .padding(.bottom, 30)
     }
     
     func button(title: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -181,7 +181,7 @@ struct AudioCard: View {
 
 #Preview {
     
-    let vm = CallViewModel(roomId: "123", isHost: true)
+    let vm = AudioCallViewModel(roomId: "123", isHost: true)
     
     AudioView(callVM: vm)
         .environmentObject(UserArray())

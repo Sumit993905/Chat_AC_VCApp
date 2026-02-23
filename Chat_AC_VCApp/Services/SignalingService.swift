@@ -27,8 +27,11 @@ final class SignalingService {
     // MARK: - Video Call Callbacks
     
     var onVideoCallStarted: (() -> Void)?
+    var onExistingVideoParticipants: (([String]) -> Void)?
+
     var onVideoCallEndedByHost: (() -> Void)?
     var onParticipantJoinedVideo: ((String) -> Void)?
+    var onParticipantJoinedVideoForUI: ((String) -> Void)?
     var onParticipantLeftVideo: ((String) -> Void)?
     
     // MARK: - WebRTC Signaling Callbacks
@@ -43,7 +46,7 @@ final class SignalingService {
         
         manager = SocketManager(
             socketURL: url,
-            config: [.log(true), .compress]
+            config: [.log(false), .compress]
         )
         
         socket = manager.defaultSocket
@@ -67,12 +70,14 @@ final class SignalingService {
     private func setupListeners() {
         
         socket.on(clientEvent: .connect) { [weak self] _, _ in
-            print("✅ Connected")
+            print("Socket connected?", self?.socket.status == .connected)
+            print("Socket Status : \(self?.socket.status, default: "Mera default hai....")")
+            print("Connected........")
             self?.onConnect?()
         }
         
         socket.on(clientEvent: .disconnect) { [weak self] _, _ in
-            print("❌ Disconnected")
+            print("Disconnected.......")
             self?.onDisconnect?()
         }
         
@@ -149,7 +154,7 @@ final class SignalingService {
         
         //MARK: - For Video
         
-        socket.on("video-call-started") { [weak self] _, _ in
+        socket.on("video-call-started") { [weak self] _ , _ in
             self?.onVideoCallStarted?()
         }
         
@@ -164,6 +169,17 @@ final class SignalingService {
             else { return }
             
             self?.onParticipantJoinedVideo?(senderId)
+            self?.onParticipantJoinedVideoForUI?(senderId)
+            print("New participant:", senderId)
+
+        }
+        
+        socket.on("existing-video-participants") { [weak self] data, _ in
+            
+            guard let arr = data.first as? [String] else { return }
+            self?.onExistingVideoParticipants?(arr)
+            print("Existing participants:", arr)
+
         }
         
         socket.on("participant-left-video") { [weak self] data, _ in
@@ -255,11 +271,19 @@ final class SignalingService {
     // MARK: - VIDEO
     
     func startVideoCall(roomId: String) {
+        print("📤 Emitting start-video-call for:", roomId)
+        print("Room ID:", roomId)
+
         socket.emit("start-video-call", ["roomId": roomId])
     }
     
     func joinVideoCall(roomId: String) {
+        
         socket.emit("join-video-call", ["roomId": roomId])
+    }
+    
+    func leaveVideoCall(roomId: String) {
+        socket.emit("leave-video-call", ["roomId": roomId])
     }
     
     func endVideoCall(roomId: String) {
@@ -269,7 +293,7 @@ final class SignalingService {
     // MARK: - WebRTC
 
     func sendOffer(to peerId: String, sdp: RTCSessionDescription) {
-        
+        print("📡 EMITTING OFFER TO:", peerId)
         socket.emit("offer", [
             "to": peerId,
             "from": socketId,

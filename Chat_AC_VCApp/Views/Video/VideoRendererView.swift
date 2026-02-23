@@ -1,8 +1,24 @@
-//
-//  VideoRendererView.swift
-//  Chat_AC_VCApp
-//
-//  Created by Sumit Raj Chingari on 18/02/26.
-//
+import SwiftUI
+import WebRTC
 
-import Foundation
+struct VideoRendererView: UIViewRepresentable {
+
+    let track: RTCVideoTrack
+
+    func makeUIView(context: Context) -> RTCMTLVideoView {
+        let view = RTCMTLVideoView()
+        view.videoContentMode = .scaleAspectFill
+        view.backgroundColor = .black
+
+        track.add(view)   
+        return view
+    }
+
+    func updateUIView(_ uiView: RTCMTLVideoView, context: Context) {
+        // do nothing
+    }
+
+    static func dismantleUIView(_ uiView: RTCMTLVideoView, coordinator: ()) {
+        // cleanup
+    }
+}
