@@ -46,6 +46,15 @@ final class WebRTCManager:ObservableObject {
             self?.handleCandidate(from: from, candidate: candidate)
         }
         
+        signaling.onVideoCallStarted = { [weak self] peerId in
+            print("🔥 Video call started by the host side")
+            
+            self?.createPeerConnection(for: peerId)
+            
+            print("Peer connection created for host....")
+            
+        }
+        
         signaling.onParticipantJoinedVideo = { [weak self] peerId in
             guard let self = self else { return }
             
@@ -76,7 +85,6 @@ final class WebRTCManager:ObservableObject {
                 if peerId == myId { continue }
                 
                 self.createPeerConnection(for: peerId)
-                // ❌ DO NOT CREATE OFFER HERE
             }
         }
 
@@ -91,15 +99,18 @@ final class WebRTCManager:ObservableObject {
     
     func startLocalMedia() {
 
-        if localVideoTrack != nil { return }
+      
+        if localClient != nil { return }
 
-        let tempClient = WebRTCClient(peerId: "local")
+        let client = WebRTCClient(peerId: "local")
 
-        tempClient.startLocalAudio()
-        tempClient.startLocalVideo()
+        client.startLocalAudio()
+        client.startLocalVideo()
 
-        localVideoTrack = tempClient.getLocalVideoTrack()
-        localAudioTrack = tempClient.getLocalAudioTrack()
+        localVideoTrack = client.getLocalVideoTrack()
+        localAudioTrack = client.getLocalAudioTrack()
+
+        localClient = client   // 🔥 MUST retain
 
         print("🎥 Local media started once")
     }
@@ -109,22 +120,25 @@ final class WebRTCManager:ObservableObject {
     func createPeerConnection(for peerId: String) {
 
         if peers[peerId] != nil { return }
+        
+        guard let videoTrack = localVideoTrack,
+              let audioTrack = localAudioTrack else {
+            print("❌ Local tracks not ready yet")
+            return
+        }
 
         let client = WebRTCClient(peerId: peerId)
         client.delegate = self
 
-        // ✅ Attach already created local tracks
-        if let localVideoTrack = localVideoTrack {
-            client.attachLocalVideoTrack(localVideoTrack)
-        }
-
-        if let localAudioTrack = localAudioTrack {
-            client.attachLocalAudioTrack(localAudioTrack)
-        }
+        client.attachLocalVideoTrack(videoTrack)
+        client.attachLocalAudioTrack(audioTrack)
+        
 
         peers[peerId] = client
 
         print("✅ Peer created:", peerId)
+        print("Local video track at peer creation:", localVideoTrack != nil)
+        print("Local audio track at peer creation:", localAudioTrack != nil)
     }
     
     func removePeer(peerId: String) {

@@ -26,7 +26,7 @@ final class SignalingService {
     
     // MARK: - Video Call Callbacks
     
-    var onVideoCallStarted: (() -> Void)?
+    var onVideoCallStarted: ((String) -> Void)?
     var onExistingVideoParticipants: (([String]) -> Void)?
 
     var onVideoCallEndedByHost: (() -> Void)?
@@ -154,8 +154,12 @@ final class SignalingService {
         
         //MARK: - For Video
         
-        socket.on("video-call-started") { [weak self] _ , _ in
-            self?.onVideoCallStarted?()
+        socket.on("video-call-started") { [weak self] data , _ in
+            guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+            else { return }
+            self?.onVideoCallStarted?(senderId)
         }
         
         socket.on("video-call-ended-by-host") { [weak self] _, _ in

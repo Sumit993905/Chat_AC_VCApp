@@ -77,8 +77,10 @@ private extension VideoView {
                         viewModel.startCall()
                     }
                 } else {
-                    mainButton(title: "Waiting for Host...", color: .gray) {}
-                        .disabled(true)
+                    mainButton(title: "Waiting for Host...", color: .gray) {
+                        viewModel.joinCall()
+                    }
+                        .disabled(false)
                 }
                 
             } else {

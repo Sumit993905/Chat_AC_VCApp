@@ -38,16 +38,16 @@ private extension VideoCallViewModel {
     func setupCallbacks() {
         
         
-        signaling.onVideoCallStarted = { [weak self] in
+        signaling.onVideoCallStarted = { [weak self] _ in
             DispatchQueue.main.async {
                 self?.isVideoCallActive = true
+                self?.isInVideoCall = true
             }
         }
         
         
         signaling.onVideoCallEndedByHost = { [weak self] in
             DispatchQueue.main.async {
-                self?.rtcManager.endAllConnections()
                 self?.resetCallState()
             }
         }
@@ -88,9 +88,11 @@ extension VideoCallViewModel {
         }
         
         rtcManager.startLocalMedia()
-        
-        print(" TRYING TO START VIDEO CALL")
         signaling.startVideoCall(roomId: roomId)
+        
+        
+        print(" Host TRYING TO START VIDEO CALL-!!!!!")
+        
     }
 
     
@@ -107,7 +109,7 @@ extension VideoCallViewModel {
         
         rtcManager.startLocalMedia()
 
-        print(" Joining video call")
+        print(" User Joining video call")
         signaling.joinVideoCall(roomId: roomId)
     }
     

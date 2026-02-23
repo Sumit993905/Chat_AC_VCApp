@@ -112,7 +112,10 @@ extension AudioCallViewModel {
         
         audioParticipants = [SignalingService.shared.socketId]
         
+        
+        rtcManager.startLocalMedia()
         SignalingService.shared.startAudioCall(roomId: roomId)
+        
         if !audioParticipants.contains(SignalingService.shared.socketId) {
             audioParticipants.append(SignalingService.shared.socketId)
         }
@@ -137,6 +140,7 @@ extension AudioCallViewModel {
     func joinCall() {
         guard isAudioCallActive else { return }
         
+        rtcManager.startLocalMedia()
         SignalingService.shared.joinAudioCall(roomId: roomId)
         
         isInAudioCall = true
