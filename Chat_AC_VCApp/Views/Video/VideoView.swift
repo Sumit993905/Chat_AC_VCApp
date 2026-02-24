@@ -72,14 +72,21 @@ private extension VideoView {
         VStack {
             // Host Logic
             if isCurrentUserHost {
-                        // ✅ Agar meeting end ho chuki hai, toh wapas 'Start' button dikhao
+                        // ✅ Host ke liye hamesha 'Start' dikhao agar call active nahi hai
+                        // Agar host ne call end kar di, toh ye wapas Start dikhayega
                         if !signaling.isVideoActive {
                             mainButton(title: "Start Video Call", color: .green) {
                                 viewModel.startCall()
                             }
+                        } else {
+                            // Agar meeting live hai, toh host ko "In Call" dikhao ya khali chhod do
+                            // Taki host ko pata rahe ki meeting abhi chal rahi hai
+                            mainButton(title: "Start Video Call", color: .blue) {
+                                viewModel.joinCall() // Taki agar galti se lobby mein aaye toh wapas ja sake
+                            }
                         }
                     } else {
-                        // ✅ User ke liye: Host active hai toh Join, warna Waiting
+                        // ✅ USER Logic: Bina host ke 'Waiting', host aate hi 'Join'
                         if signaling.isVideoActive {
                             mainButton(title: "Join Video Call", color: .blue) {
                                 viewModel.joinCall()
