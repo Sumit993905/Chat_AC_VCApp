@@ -15,5 +15,6 @@ struct Sender: Codable, Identifiable {
     let time: Date
     let roomId: String
     let isHost: Bool
+    
 }
 

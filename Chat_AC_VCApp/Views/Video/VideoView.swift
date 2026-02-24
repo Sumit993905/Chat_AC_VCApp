@@ -13,6 +13,7 @@ struct VideoView: View {
     @EnvironmentObject var userStore: UserStore
     
     @ObservedObject var viewModel: VideoCallViewModel
+    @ObservedObject var signaling = SignalingService.shared
     
     private let columns = [
         GridItem(.flexible(), spacing: 20),
@@ -56,7 +57,7 @@ struct VideoView: View {
             }
         }
         .navigationDestination(isPresented: $viewModel.isInVideoCall) {
-            VideoCallView(viewModel: viewModel)
+            VideoGridScreen()
                 .environmentObject(userArray)
         }
         .onAppear {
@@ -69,30 +70,28 @@ private extension VideoView {
     var actionSection: some View {
         
         VStack {
-            
-            if !viewModel.isVideoCallActive {
-                
-                if isCurrentUserHost {
-                    mainButton(title: "Start Video Call", color: .green) {
-                        viewModel.startCall()
+            // Host Logic
+            if isCurrentUserHost {
+                        // ✅ Agar meeting end ho chuki hai, toh wapas 'Start' button dikhao
+                        if !signaling.isVideoActive {
+                            mainButton(title: "Start Video Call", color: .green) {
+                                viewModel.startCall()
+                            }
+                        }
+                    } else {
+                        // ✅ User ke liye: Host active hai toh Join, warna Waiting
+                        if signaling.isVideoActive {
+                            mainButton(title: "Join Video Call", color: .blue) {
+                                viewModel.joinCall()
+                            }
+                        } else {
+                            mainButton(title: "Waiting for Host...", color: .gray) {}
+                                .opacity(0.6)
+                                .disabled(true)
+                        }
                     }
-                } else {
-                    mainButton(title: "Waiting for Host...", color: .gray) {
-                        viewModel.joinCall()
-                    }
-                        .disabled(false)
                 }
-                
-            } else {
-                
-                if !viewModel.isInVideoCall {
-                    mainButton(title: "Join Video Call", color: .blue) {
-                        viewModel.joinCall()
-                    }
-                }
-            }
-        }
-        .padding(.bottom, 30)
+                .padding(.bottom, 30)
     }
     
     

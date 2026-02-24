@@ -1,13 +1,14 @@
 import Foundation
 import SocketIO
 import WebRTC
+import Combine
 
-final class SignalingService {
+final class SignalingService: ObservableObject {
     
     static let shared = SignalingService()
     
     private let manager: SocketManager
-    private let socket: SocketIOClient
+    var socket: SocketIOClient
     
     // MARK: - Chat Callbacks
     
@@ -16,6 +17,12 @@ final class SignalingService {
     var onUserJoined: ((Sender) -> Void)?
     var onUserLeft: ((String) -> Void)?
     var onMessageReceived: ((Sender) -> Void)?
+    
+    // MARK: - Typing Callbacks
+
+    var onUserTyping:((String,String) -> Void)?
+    var onUserStopTyping: ((String) -> Void)?
+    
     
     // MARK: - Audio Call Callbacks
     
@@ -39,10 +46,18 @@ final class SignalingService {
     var onOfferReceived: ((String, RTCSessionDescription) -> Void)?
     var onAnswerReceived: ((String, RTCSessionDescription) -> Void)?
     var onCandidateReceived: ((String, RTCIceCandidate) -> Void)?
+    
+    
+    @Published var isConnected = false
+    @Published var isInVideo = false
+    @Published var isVideoActive = false
+    @Published var currentPeer: PeerModel?
+    @Published var activePeers: [PeerModel] = []
+    @Published var showMeetingEndedAlert = false
 
     private init() {
         
-        let url = URL(string: "https://maneuverable-cognatic-jaydon.ngrok-free.dev")!
+        let url = URL(string: "https://5afc-111-92-91-96.ngrok-free.app")!
         
         manager = SocketManager(
             socketURL: url,
@@ -124,6 +139,27 @@ final class SignalingService {
             self?.onMessageReceived?(sender)
         }
         
+        // MARK: - Typing
+
+            socket.on("typing") { [weak self] data, _ in
+              guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String,
+                let name = dict["name"] as? String
+              else { return }
+
+              self?.onUserTyping?(senderId, name)
+            }
+
+            socket.on("stop-typing") { [weak self] data, _ in
+              guard
+                let dict = data.first as? [String: Any],
+                let senderId = dict["senderId"] as? String
+              else { return }
+
+              self?.onUserStopTyping?(senderId)
+            }
+        
             //MARK: - For Audio
         
         socket.on("audio-call-started") { [weak self] _, _ in
@@ -155,10 +191,11 @@ final class SignalingService {
         //MARK: - For Video
         
         socket.on("video-call-started") { [weak self] data , _ in
-            guard
-                let dict = data.first as? [String: Any],
-                let senderId = dict["senderId"] as? String
-            else { return }
+            DispatchQueue.main.async {
+                self?.isVideoActive = true  // ✅ UI button change karne ke liye
+            }
+            guard let dict = data.first as? [String: Any],
+                  let senderId = dict["senderId"] as? String else { return }
             self?.onVideoCallStarted?(senderId)
         }
         
@@ -237,7 +274,247 @@ final class SignalingService {
             self?.onCandidateReceived?(from, candidate)
         }
 
+//satyam func
+        socket.on(clientEvent: .connect) { _, _ in self.isConnected = true }
+        
+        socket.on("videoMembersUpdate") { data, _ in
+            guard let members = data[0] as? [[String: Any]] else { return }
+            let memberIds = members.compactMap { $0["senderId"] as? String }
+                self.onExistingVideoParticipants?(memberIds)
+            let peers = members.map { dict in
+                PeerModel(
+                    name: dict["name"] as? String ?? "",
+                    senderId: dict["senderId"] as? String ?? "",
+                    isHost: dict["isHost"] as? Bool ?? false,
+                    roomId: dict["roomId"] as? String ?? "",
+                    content: ""
+                )
+            }
+            DispatchQueue.main.async {
+                self.activePeers = peers
+                self.checkMeshConnections()
+            }
+        }
+        
+        socket.on("receiveOffer") { data, _ in
+            guard let dict = data[0] as? [String: Any],
+                  let sdp = dict["sdp"] as? String,
+                  let sId = dict["senderId"] as? String else { return }
+            
+            VConnectRTC.shared.handleRemoteOffer(sdp: sdp, from: sId) { answerSdp in
+                self.socket.emit("sendAnswer", ["sdp": answerSdp.sdp, "targetId": sId, "senderId": self.currentPeer?.senderId ?? ""])
+            }
+        }
+        
+        socket.on("receiveAnswer") { data, _ in
+            guard let dict = data[0] as? [String: Any],
+                  let sdp = dict["sdp"] as? String,
+                  let sId = dict["senderId"] as? String else { return }
+            VConnectRTC.shared.handleRemoteAnswer(sdp: sdp, from: sId)
+        }
+        
+        
+        
+        
+        socket.on("receiveIceCandidate") { data, _ in
+            guard let dict = data[0] as? [String: Any],
+                  let candidate = dict["candidate"] as? [String: Any],
+                  let sId = dict["senderId"] as? String else { return }
+            VConnectRTC.shared.handleIceCandidate(dict: candidate, from: sId)
+        }
+        socket.on("peerMuteUpdate") { data, _ in
+            print("📥 [SOCKET] Received peerMuteUpdate: \(data)")
+            guard let dict = data[0] as? [String: Any],
+                  let sId = dict["senderId"] as? String,
+                  let mutedStatus = dict["isMuted"] as? Bool else { return }
+            
+            DispatchQueue.main.async {
+                // Peer ki list mein index dhoondo aur update karo
+                if let index = self.activePeers.firstIndex(where: { $0.senderId == sId }) {
+                    self.activePeers[index].isMuted = mutedStatus
+                    
+              
+                    print("👤 Peer \(sId) is now \(mutedStatus ? "Muted" : "Unmuted")")
+                }
+            }
+        }
+        socket.on("peerVideoUpdate") { data, _ in
+            guard let dict = data[0] as? [String: Any],
+                  let sId = dict["senderId"] as? String,
+                  let videoStatus = dict["isVideoOff"] as? Bool else { return }
+            
+            DispatchQueue.main.async {
+                if let index = self.activePeers.firstIndex(where: { $0.senderId == sId }) {
+                    var newPeers = self.activePeers
+                    newPeers[index].isVideoOff = videoStatus // PeerModel mein isVideoOff hona chahiye
+                    self.activePeers = newPeers
+                }
+            }
+        }
+        // SignalingService.swift mein
+        socket.on("meetingStatusUpdate") { [weak self] data, _ in
+            guard let dict = data.first as? [String: Any],
+                  let isLive = dict["isLive"] as? Bool else { return }
+            
+            DispatchQueue.main.async {
+                // ✅ Ye sabse important line hai
+                // Jab Host end karega, isLive false aayega -> Host ko Start button dikhega
+                // Aur User ko automatically "Waiting for Host..." dikhne lagega
+                self?.isVideoActive = isLive
+                
+                if !isLive {
+                    self?.isInVideo = false
+                    self?.cleanupCall()
+                }
+            }
+        }
 
+        // meetingEnded listener ko update karein
+        socket.on("meetingEnded") { [weak self] _, _ in
+            print("🛑 Meeting ended notification received")
+            DispatchQueue.main.async {
+                self?.isVideoActive = false
+                self?.isInVideo = false  // <--- Isse user automatically home screen par jayega
+                self?.cleanupCall()
+                self?.showMeetingEndedAlert = true
+            }
+        }
+    
+    
+
+    }
+    
+  
+    private func checkMeshConnections() {
+        for peer in activePeers {
+            if peer.senderId == currentPeer?.senderId { continue }
+            
+            // Golden Rule: Choti ID wala Offer bhejega
+            if (currentPeer?.senderId ?? "") < peer.senderId {
+                if VConnectRTC.shared.clients[peer.senderId] == nil {
+                    VConnectRTC.shared.initiateInternalConnection(to: peer)
+                }
+            }
+        }
+    }
+    
+    func startRoom(id: String) {
+        currentPeer?.isHost = true
+        currentPeer?.roomId = id
+        joinRoom(id: id)
+    }
+    
+
+    
+    func joinRoom(id: String) {
+     
+        
+        
+        print("yeh mere rooID hai jo ki viewModel se aarhahai ", id)
+        currentPeer?.roomId = id
+        
+        print(self.currentPeer?.roomId ,"yeh mere join room wala join id hai")
+ 
+        guard let peer = self.currentPeer else { return }
+       
+        print("🚀 Joining Room: \(id) | My ID: \(peer.senderId)")
+   
+        
+        
+        socket.emit("joinVideo", [
+            "roomId": id,
+            "senderId": peer.senderId,
+            "name": peer.name,
+            "isHost": peer.isHost
+        ])
+        
+        VConnectRTC.shared.prepareLocalMedia()
+        self.isInVideo = true
+    }
+    
+    func UIStateChanged(id: String) {
+         socket.emit("startMeeting", ["roomId": id])
+        
+    }
+    
+    
+    func updateMuteStatus(isMuted: Bool) {
+  
+        guard let peer = currentPeer else {
+            print("❌ Error: Current Peer not found")
+            return
+        }
+        
+        let data: [String: Any] = [
+            "roomId": peer.roomId, // ✅ Make sure ye wahi room ID hai jo Host ki hai
+            "senderId": peer.senderId,
+            "isMuted": isMuted
+        ]
+        
+        print("📤 Sending Mute Status for \(peer.senderId): \(isMuted)")
+        socket.emit("toggleMute", data)
+    }
+    
+    func updateVideoStatus(isVideoOff: Bool) {
+        guard let peer = currentPeer, !peer.roomId.isEmpty else { return }
+        
+        let data: [String: Any] = [
+            "roomId": peer.roomId,
+            "senderId": peer.senderId,
+            "isVideoOff": isVideoOff
+        ]
+        socket.emit("toggleVideo", data)
+    }
+    
+    
+    func leaveOrEndCall() {
+        guard let peer = currentPeer else { return }
+        
+        if peer.isHost {
+            print("👑 Host ending meeting for everyone")
+            let data: [String: Any] = [
+                "roomId": peer.roomId,
+                "senderId": peer.senderId,
+                "isHost": true // Server check ke liye important hai
+            ]
+            socket.emit("endMeeting", data)
+            
+            // ✅ Host ke liye locally turant reset karo taaki button 'Start' dikhne lage
+            DispatchQueue.main.async {
+                self.isVideoActive = false
+            }
+        } else {
+            print("👤 User leaving the meeting")
+            let data: [String: Any] = [
+                "roomId": peer.roomId,
+                "senderId": peer.senderId
+            ]
+            socket.emit("leaveVideo", data)
+            
+            // ✅ User ke liye isVideoActive ko false MAT karna yahan,
+            // kyunki meeting host ke liye abhi bhi live ho sakti hai.
+        }
+        
+        self.cleanupCall()
+    }
+  
+//    func cleanupCall() {
+//        DispatchQueue.main.async {
+//            self.isInVideo = false
+//            self.activePeers.removeAll()
+//            VConnectRTC.shared.closeAllConnections() // RTC connections close karein
+//        }
+//    }
+    
+    func cleanupCall() {
+        DispatchQueue.main.async {
+            self.isInVideo = false
+          
+            self.activePeers.removeAll()
+            
+            // RTC Connections aur Hardware band karo
+            VConnectRTC.shared.closeAllConnections()
+        }
     }
     
     
@@ -249,8 +526,25 @@ final class SignalingService {
         emit(event: "join-room", sender: sender)
     }
     
+    //MARK: - Chat
+    
     func sendMessage(_ sender: Sender) {
         emit(event: "chat-message", sender: sender)
+    }
+    
+    func sendTyping(roomId: String, name: String) {
+        socket.emit("typing", [
+            "roomId": roomId,
+            "senderId": socketId,
+            "name": name
+        ])
+    }
+
+    func sendStopTyping(roomId: String) {
+        socket.emit("stop-typing", [
+            "roomId": roomId,
+            "senderId": socketId
+        ])
     }
     
     // MARK: - AUDIO
@@ -272,7 +566,7 @@ final class SignalingService {
         socket.emit("end-audio-call", ["roomId": roomId])
     }
     
-    // MARK: - VIDEO
+
     
     func startVideoCall(roomId: String) {
         print("📤 Emitting start-video-call for:", roomId)
@@ -294,7 +588,7 @@ final class SignalingService {
         socket.emit("end-video-call", ["roomId": roomId])
     }
     
-    // MARK: - WebRTC
+
 
     func sendOffer(to peerId: String, sdp: RTCSessionDescription) {
         print("📡 EMITTING OFFER TO:", peerId)
@@ -326,7 +620,7 @@ final class SignalingService {
     }
 
     
-    // MARK: -  Helper Method
+  
     
     private func emit(event: String, sender: Sender) {
         

@@ -6,6 +6,7 @@
 import Foundation
 import Combine
 import WebRTC
+import SocketIO
 
 final class VideoCallViewModel: ObservableObject {
     
@@ -17,7 +18,7 @@ final class VideoCallViewModel: ObservableObject {
     
     
     
-    private let signaling = SignalingService.shared
+    let signaling = SignalingService.shared
     private let rtcManager = WebRTCManager.shared
     
     var roomId: String
@@ -36,8 +37,18 @@ final class VideoCallViewModel: ObservableObject {
 private extension VideoCallViewModel {
     
     func setupCallbacks() {
-        
-        
+        signaling.$isVideoActive
+                .receive(on: DispatchQueue.main)
+                .assign(to: &$isVideoCallActive)
+
+          
+            signaling.onVideoCallEndedByHost = { [weak self] in
+                DispatchQueue.main.async {
+                    self?.isVideoCallActive = false
+                    self?.isInVideoCall = false
+                    
+                }
+            }
         signaling.onVideoCallStarted = { [weak self] _ in
             DispatchQueue.main.async {
                 self?.isVideoCallActive = true
@@ -74,43 +85,25 @@ private extension VideoCallViewModel {
 
 extension VideoCallViewModel {
     
+    
     func startCall() {
-        
-        guard isHost else { return }
-        
-        isVideoCallActive = true
+        signaling.UIStateChanged(id: roomId)
         isInVideoCall = true
-        
-        let selfId = signaling.socketId
-        
-        if !videoParticipants.contains(selfId) {
-            videoParticipants.append(selfId)
-        }
-        
-        rtcManager.startLocalMedia()
-        signaling.startVideoCall(roomId: roomId)
-        
-        
-        print(" Host TRYING TO START VIDEO CALL-!!!!!")
+        print("📤 Sending startMeeting request...")
+     
+        signaling.startRoom(id: roomId)
         
     }
 
     
     func joinCall() {
-        guard isVideoCallActive else { return }
+    
+        signaling.joinRoom(id: roomId)
+        print("yeh mere view model ka room id jo start par jata hai ",roomId )
+        self.isInVideoCall = true
         
-        isInVideoCall = true
-        
-        let selfId = signaling.socketId
-        
-        if !videoParticipants.contains(selfId) {
-            videoParticipants.append(selfId)
-        }
-        
-        rtcManager.startLocalMedia()
-
-        print(" User Joining video call")
-        signaling.joinVideoCall(roomId: roomId)
+       
+       
     }
     
     func endCall() {
@@ -143,5 +136,4 @@ extension VideoCallViewModel {
         rtcManager.setMute(isVideoMuted)
     }
 }
-
 

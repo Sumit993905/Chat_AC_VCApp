@@ -36,7 +36,7 @@ struct LoginView: View {
                         content: ""
                     )
                     
-                    // ✅ 3. Socket mein current user set karo
+               
                     socket.currentPeer = myPeer
                     
                     // ✅ 4. Navigation trigger karo
@@ -55,7 +55,7 @@ struct LoginView: View {
 import SwiftUI
 
 struct RoomSelectionView: View {
-    @StateObject var socket = VConnectSocket.shared
+    @StateObject var socket = SignalingService.shared 
     @State private var roomIDInput: String = ""
     @State private var navigateToVideo = false
     

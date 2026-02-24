@@ -3,7 +3,7 @@ import SwiftUI
 import WebRTC
 
 struct VideoGridScreen: View {
-    @StateObject var socket = VConnectSocket.shared
+    @StateObject var socket = SignalingService.shared
     @StateObject var rtc = VConnectRTC.shared
     @Environment(\.dismiss) var dismiss
     
@@ -80,7 +80,8 @@ struct VideoGridScreen: View {
 
                     Button(action: {
                       
-                        socket.endCall()
+                        socket.leaveOrEndCall()
+                        
                         dismiss()
                     }) {
                         Image(systemName: "phone.down.fill")
@@ -95,8 +96,8 @@ struct VideoGridScreen: View {
                                    color: rtc.isVideoOff ? .red : .white.opacity(0.2)) {
                         
                         rtc.isVideoOff.toggle()
-                        rtc.localVideoTrack?.isEnabled = !rtc.isVideoOff // WebRTC track stop/start
-                        socket.updateVideoStatus(isVideoOff: rtc.isVideoOff) // Server ko notify karein
+                        rtc.localVideoTrack?.isEnabled = !rtc.isVideoOff
+                        socket.updateVideoStatus(isVideoOff: rtc.isVideoOff)
                     }
                 }
                 .padding(.bottom, 30)

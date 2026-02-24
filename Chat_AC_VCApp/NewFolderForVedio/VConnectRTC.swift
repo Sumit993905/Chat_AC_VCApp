@@ -109,10 +109,10 @@ class VConnectRTC: NSObject, ObservableObject, RTCAudioSessionDelegate {
             }
             pc.setLocalDescription(sdp) { _ in
                 print("📤 [SIGNALING] Sending Offer to: \(peer.senderId)") // LOG
-                VConnectSocket.shared.socket.emit("sendOffer", [
+                SignalingService.shared.socket.emit("sendOffer", [
                     "sdp": sdp.sdp,
                     "targetId": peer.senderId,
-                    "senderId": VConnectSocket.shared.currentPeer?.senderId ?? ""
+                    "senderId": SignalingService.shared.currentPeer?.senderId ?? ""
                 ])
             }
         }
@@ -222,26 +222,41 @@ class VConnectRTC: NSObject, ObservableObject, RTCAudioSessionDelegate {
     }
     // VConnectRTC.swift ke andar
     func closeAllConnections() {
-        // Mic aur Video tracks band karein
+        // 1. Camera stop karein
+        videoCapturer?.stopCapture {
+            print("📸 Camera stopped")
+        }
+        videoCapturer = nil
+        
+        // 2. Local tracks band karein
         localAudioTrack?.isEnabled = false
         localVideoTrack?.isEnabled = false
+        localAudioTrack = nil
+        localVideoTrack = nil
         
-        // Camera capture bhi stop karein
-        videoCapturer?.stopCapture()
-        
-        // Saari peer connections close karein
-        for (_, connection) in clients {
-            connection.close() // ✅ Correct: connection khud peerConnection hai
+        // 3. Saari Peer Connections close karein
+        for (sId, connection) in clients {
+            connection.close()
+            print("🔌 Connection closed for peer: \(sId)")
         }
         
-        // Cleanup dictionaries
+        // 4. Data clear karein
         clients.removeAll()
         remoteTracks.removeAll()
         iceCandidateQueue.removeAll()
         
-        print("🧹 All WebRTC connections cleaned up")
+        // 5. Audio session reset karein
+//        let session = RTCAudioSession.sharedInstance()
+//        session.lockForConfiguration()
+//        do {
+//            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+//        } catch {
+//            print("❌ Audio cleanup error: \(error)")
+//        }
+//        session.unlockForConfiguration()
+//        
+//        print("🧹 All WebRTC resources cleared")
     }
-    
     
 }
 
@@ -290,10 +305,10 @@ extension VConnectRTC: RTCPeerConnectionDelegate {
                 "sdpMLineIndex": candidate.sdpMLineIndex,
                 "sdpMid": candidate.sdpMid ?? ""
             ]
-            VConnectSocket.shared.socket.emit("sendIceCandidate", [
+            SignalingService.shared.socket.emit("sendIceCandidate", [
                 "candidate": dict,
                 "targetId": sId,
-                "senderId": VConnectSocket.shared.currentPeer?.senderId ?? ""
+                "senderId": SignalingService.shared.currentPeer?.senderId ?? ""
             ])
         }
     }

@@ -171,7 +171,7 @@ extension ConnectPage {
     
     private func createRoom() {
         
-        let randomRoom = String(Int.random(in: 10000...99999))
+        let randomRoom = String(Int.random(in: 100...999))
         roomId.roomID = randomRoom
         
         let sender = Sender(
@@ -182,11 +182,21 @@ extension ConnectPage {
             roomId: randomRoom,
             isHost: true
         )
+        let myPeer = PeerModel(
+            name: name,
+            senderId: SignalingService.shared.socketId,
+            isHost: true,
+            roomId: "",
+            content: ""
+        )
+        
+        // ✅ 3. Socket mein current user set karo
         
         userArray.users.removeAll()
         userArray.users.append(sender)
         
         SignalingService.shared.createRoom(sender)
+        SignalingService.shared.currentPeer = myPeer
         
         navigateToNext = true
     }
@@ -203,6 +213,16 @@ extension ConnectPage {
             roomId: joinRoomCode,
             isHost: false
         )
+        
+        let myPeer = PeerModel(
+             name: name,
+             senderId:  SignalingService.shared.socketId,
+             isHost: false,
+             roomId: joinRoomCode,
+             content: ""
+         )
+        
+        SignalingService.shared.currentPeer = myPeer
         
         userArray.users.removeAll()
         userArray.users.append(sender)

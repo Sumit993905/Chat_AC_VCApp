@@ -33,8 +33,7 @@ struct VideoCallView: View {
                         )
                         .id("local-video")
                     }
-                    
-                    //  Remote Videos (Sorted for stability)
+                   
                     ForEach(rtcManager.remoteTracks.keys.sorted(), id: \.self) { peerId in
                         
                         VideoTileView(
