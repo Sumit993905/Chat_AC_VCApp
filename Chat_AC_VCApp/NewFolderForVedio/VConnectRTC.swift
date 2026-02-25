@@ -222,40 +222,40 @@ class VConnectRTC: NSObject, ObservableObject, RTCAudioSessionDelegate {
     }
     // VConnectRTC.swift ke andar
     func closeAllConnections() {
-        // 1. Camera stop karein
-        videoCapturer?.stopCapture {
-            print("📸 Camera stopped")
+
+        // 1️⃣ Stop Camera (Main Thread)
+        DispatchQueue.main.async {
+            self.videoCapturer?.stopCapture {
+                print("📸 Camera stopped")
+            }
+            self.videoCapturer = nil
         }
-        videoCapturer = nil
-        
-        // 2. Local tracks band karein
+
+        // 2️⃣ Disable local tracks
         localAudioTrack?.isEnabled = false
         localVideoTrack?.isEnabled = false
         localAudioTrack = nil
         localVideoTrack = nil
-        
-        // 3. Saari Peer Connections close karein
+
+        // 3️⃣ Close peer connections
         for (sId, connection) in clients {
             connection.close()
             print("🔌 Connection closed for peer: \(sId)")
         }
-        
-        // 4. Data clear karein
+
         clients.removeAll()
         remoteTracks.removeAll()
         iceCandidateQueue.removeAll()
-        
-        // 5. Audio session reset karein
-//        let session = RTCAudioSession.sharedInstance()
-//        session.lockForConfiguration()
-//        do {
-//            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-//        } catch {
-//            print("❌ Audio cleanup error: \(error)")
-//        }
-//        session.unlockForConfiguration()
-//        
-//        print("🧹 All WebRTC resources cleared")
+
+        // 4️⃣ Proper Audio session deactivate
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            print("🔈 Audio session deactivated")
+        } catch {
+            print("❌ Audio cleanup error: \(error)")
+        }
+
+        print("🧹 All WebRTC resources cleared")
     }
     
 }

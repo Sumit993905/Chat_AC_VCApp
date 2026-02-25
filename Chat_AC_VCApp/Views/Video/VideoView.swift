@@ -56,7 +56,7 @@ struct VideoView: View {
                 actionSection
             }
         }
-        .navigationDestination(isPresented: $viewModel.isInVideoCall) {
+        .navigationDestination(isPresented: $signaling.isInVideo) {
             VideoGridScreen()
                 .environmentObject(userArray)
         }
@@ -70,34 +70,45 @@ private extension VideoView {
     var actionSection: some View {
         
         VStack {
-            // Host Logic
-            if isCurrentUserHost {
-                        // ✅ Host ke liye hamesha 'Start' dikhao agar call active nahi hai
-                        // Agar host ne call end kar di, toh ye wapas Start dikhayega
-                        if !signaling.isVideoActive {
-                            mainButton(title: "Start Video Call", color: .green) {
-                                viewModel.startCall()
-                            }
-                        } else {
-                            // Agar meeting live hai, toh host ko "In Call" dikhao ya khali chhod do
-                            // Taki host ko pata rahe ki meeting abhi chal rahi hai
-                            mainButton(title: "Start Video Call", color: .blue) {
-                                viewModel.joinCall() // Taki agar galti se lobby mein aaye toh wapas ja sake
-                            }
-                        }
-                    } else {
-                        // ✅ USER Logic: Bina host ke 'Waiting', host aate hi 'Join'
-                        if signaling.isVideoActive {
-                            mainButton(title: "Join Video Call", color: .blue) {
-                                viewModel.joinCall()
-                            }
-                        } else {
-                            mainButton(title: "Waiting for Host...", color: .gray) {}
-                                .opacity(0.6)
-                                .disabled(true)
-                        }
+            
+            if signaling.isVideoActive == false {
+                if isCurrentUserHost {
+                    Button("Start Video Call") {
+                        viewModel.startCall()
                     }
+                    .padding(20)
+                    .background(.blue)
+                    .foregroundStyle(.white)
+                    .font(.system(size: 24,weight: .bold))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(style: StrokeStyle(lineWidth: 1))
+                        )
+                    
+                    
+                } else {
+                    Button("Waiting for Host...") { }.disabled(true)
                 }
+            } else {
+                // Meeting live ho chuki hai, ab join button dikhao
+                Button("Join Video Call") {
+                    viewModel.joinCall()
+                }
+                .padding(20)
+                .background(.blue)
+                .foregroundStyle(.white)
+                .font(.system(size: 24,weight: .bold))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(style: StrokeStyle(lineWidth: 1))
+                )
+                
+            }
+        }
+        .padding(.bottom, 30)
+        .onReceive(NotificationCenter.default.publisher(for: .meetingEnded)) { _ in
+            viewModel.isInVideoCall = false
+        }
                 .padding(.bottom, 30)
     }
     

@@ -57,7 +57,7 @@ final class SignalingService: ObservableObject {
 
     private init() {
         
-        let url = URL(string: "https://5afc-111-92-91-96.ngrok-free.app")!
+        let url = URL(string: "https://a294-111-92-91-96.ngrok-free.app")!
         
         manager = SocketManager(
             socketURL: url,
@@ -188,7 +188,6 @@ final class SignalingService: ObservableObject {
             self?.onParticipantLeftAudio?(senderId)
         }
         
-        //MARK: - For Video
         
         socket.on("video-call-started") { [weak self] data , _ in
             DispatchQueue.main.async {
@@ -274,7 +273,7 @@ final class SignalingService: ObservableObject {
             self?.onCandidateReceived?(from, candidate)
         }
 
-//satyam func
+
         socket.on(clientEvent: .connect) { _, _ in self.isConnected = true }
         
         socket.on("videoMembersUpdate") { data, _ in
@@ -351,32 +350,31 @@ final class SignalingService: ObservableObject {
                 }
             }
         }
-        // SignalingService.swift mein
+      
+
+      
         socket.on("meetingStatusUpdate") { [weak self] data, _ in
             guard let dict = data.first as? [String: Any],
                   let isLive = dict["isLive"] as? Bool else { return }
-            
+
             DispatchQueue.main.async {
-                // ✅ Ye sabse important line hai
-                // Jab Host end karega, isLive false aayega -> Host ko Start button dikhega
-                // Aur User ko automatically "Waiting for Host..." dikhne lagega
                 self?.isVideoActive = isLive
-                
+
                 if !isLive {
+                    VConnectRTC.shared.closeAllConnections()
+                    self?.activePeers.removeAll()
                     self?.isInVideo = false
-                    self?.cleanupCall()
+                    self?.showMeetingEndedAlert = true
                 }
             }
         }
 
-        // meetingEnded listener ko update karein
+        
         socket.on("meetingEnded") { [weak self] _, _ in
-            print("🛑 Meeting ended notification received")
             DispatchQueue.main.async {
-                self?.isVideoActive = false
-                self?.isInVideo = false  // <--- Isse user automatically home screen par jayega
-                self?.cleanupCall()
-                self?.showMeetingEndedAlert = true
+                if self?.isInVideo == true {
+                    self?.showMeetingEndedAlert = true
+                }
             }
         }
     
@@ -446,7 +444,7 @@ final class SignalingService: ObservableObject {
         }
         
         let data: [String: Any] = [
-            "roomId": peer.roomId, // ✅ Make sure ye wahi room ID hai jo Host ki hai
+            "roomId": peer.roomId,
             "senderId": peer.senderId,
             "isMuted": isMuted
         ]
@@ -466,54 +464,28 @@ final class SignalingService: ObservableObject {
         socket.emit("toggleVideo", data)
     }
     
-    
     func leaveOrEndCall() {
         guard let peer = currentPeer else { return }
-        
+
         if peer.isHost {
-            print("👑 Host ending meeting for everyone")
-            let data: [String: Any] = [
-                "roomId": peer.roomId,
-                "senderId": peer.senderId,
-                "isHost": true // Server check ke liye important hai
-            ]
-            socket.emit("endMeeting", data)
-            
-            // ✅ Host ke liye locally turant reset karo taaki button 'Start' dikhne lage
-            DispatchQueue.main.async {
-                self.isVideoActive = false
-            }
+            socket.emit("endMeeting", ["roomId": peer.roomId])
         } else {
-            print("👤 User leaving the meeting")
-            let data: [String: Any] = [
+            socket.emit("leaveVideo", [
                 "roomId": peer.roomId,
                 "senderId": peer.senderId
-            ]
-            socket.emit("leaveVideo", data)
-            
-            // ✅ User ke liye isVideoActive ko false MAT karna yahan,
-            // kyunki meeting host ke liye abhi bhi live ho sakti hai.
-        }
-        
-        self.cleanupCall()
-    }
-  
-//    func cleanupCall() {
-//        DispatchQueue.main.async {
-//            self.isInVideo = false
-//            self.activePeers.removeAll()
-//            VConnectRTC.shared.closeAllConnections() // RTC connections close karein
-//        }
-//    }
-    
-    func cleanupCall() {
-        DispatchQueue.main.async {
-            self.isInVideo = false
-          
-            self.activePeers.removeAll()
-            
-            // RTC Connections aur Hardware band karo
+            ])
+
             VConnectRTC.shared.closeAllConnections()
+            activePeers.removeAll()
+            isInVideo = false
+        }
+    }
+
+    func cleanupOnlyVideo() {
+        DispatchQueue.main.async {
+            VConnectRTC.shared.closeAllConnections()
+            self.activePeers.removeAll()
+            print("🧹 Hardware Released & Connections Closed")
         }
     }
     
@@ -526,7 +498,7 @@ final class SignalingService: ObservableObject {
         emit(event: "join-room", sender: sender)
     }
     
-    //MARK: - Chat
+
     
     func sendMessage(_ sender: Sender) {
         emit(event: "chat-message", sender: sender)
@@ -547,7 +519,7 @@ final class SignalingService: ObservableObject {
         ])
     }
     
-    // MARK: - AUDIO
+    
     
     func startAudioCall(roomId: String) {
         socket.emit("start-audio-call", ["roomId": roomId])
@@ -629,7 +601,7 @@ final class SignalingService: ObservableObject {
             let json = try JSONSerialization.jsonObject(with: data)
             socket.emit(event, json as! SocketData)
         } catch {
-            print("❌ Encoding Error:", error)
+            print(" Encoding Error:", error)
         }
     }
     
@@ -641,8 +613,11 @@ final class SignalingService: ObservableObject {
             let sender = try JSONDecoder().decode(Sender.self, from: data)
             return sender
         } catch {
-            print("❌ Decoding Error:", error)
+            print(" Decoding Error:", error)
             return nil
         }
     }
+}
+extension Notification.Name {
+    static let meetingEnded = Notification.Name("meetingEnded")
 }

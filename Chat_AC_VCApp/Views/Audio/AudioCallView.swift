@@ -69,7 +69,7 @@ private extension AudioCallView {
             ) {
                 viewModel.endCall()
             }
-            
+        
             circleButton(icon: viewModel.isSpeakerOn ? "speaker.wave.2.fill" : "speaker.slash.fill", color: .gray) {
                 self.viewModel.toggleSpeaker()
             }

@@ -147,9 +147,7 @@ extension WebRTCClient {
         
         localVideoTrack = factory.videoTrack(with: videoSource, trackId: "video0")
         
-//        if let track = localVideoTrack {
-//            peerConnection.add(track, streamIds: ["stream0"])
-//        }
+
         
         let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
         
@@ -190,7 +188,7 @@ extension WebRTCClient {
         localVideoTrack?.isEnabled = enabled
     }
     
-    // MARK: - Attach Existing Tracks
+
 
     func attachLocalVideoTrack(_ track: RTCVideoTrack) {
         peerConnection.add(track, streamIds: ["stream0"])
@@ -201,7 +199,6 @@ extension WebRTCClient {
     }
 }
 
-// MARK: - For Delegate
 
 extension WebRTCClient {
     

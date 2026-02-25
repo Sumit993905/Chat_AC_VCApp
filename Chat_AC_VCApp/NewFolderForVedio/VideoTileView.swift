@@ -81,8 +81,7 @@ struct VideoGridScreen: View {
                     Button(action: {
                       
                         socket.leaveOrEndCall()
-                        
-                        dismiss()
+                     
                     }) {
                         Image(systemName: "phone.down.fill")
                             .font(.title)
@@ -105,12 +104,16 @@ struct VideoGridScreen: View {
         }
         .alert("Meeting Ended", isPresented: $socket.showMeetingEndedAlert) {
             Button("OK", role: .cancel) {
-             
-                socket.cleanupCall()
-                dismiss()
+                socket.cleanupOnlyVideo()
+                dismiss() 
             }
         } message: {
             Text("The host has ended the meeting for everyone.")
+        }
+        .onDisappear {
+            if socket.isInVideo {
+                socket.leaveOrEndCall()
+            }
         }
     }
 }
